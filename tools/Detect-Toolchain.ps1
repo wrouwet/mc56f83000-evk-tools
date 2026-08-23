@@ -1,22 +1,25 @@
 <#
 .SYNOPSIS
-    Scans a CodeWarrior for 56800/56800E install tree for the real
-    compiler/assembler/linker/flash-programmer/debugger executables and
-    writes their paths to config/toolchain.ps1.
+    Scans a CodeWarrior for MCUs (v11.1+, Eclipse-based) install tree for
+    the confirmed real executables — ecd.exe, cwide.exe/cwidec.exe,
+    fflash.exe — and writes their paths to config/toolchain.ps1.
 
 .DESCRIPTION
-    CodeWarrior's command-line tool executable names have changed across
-    versions (v7.x/v8.x vs v10.x/v11.x). Rather than hardcode a guess that
-    might be wrong for your install, this script searches by pattern and
-    reports what it actually finds, so config/toolchain.ps1 always
-    reflects real paths on this machine.
+    Unlike the legacy v8.x "Classic" CodeWarrior tools, CW10/11's build and
+    debug entry points are well-documented and version-stable:
+      - eclipse\ecd.exe          headless build driver
+      - eclipse\cwide.exe/cwidec.exe   runs Debugger Shell TCL scripts
+      - the 56800E flash programmer, fflash.exe
+    See docs/ARCHITECTURE.md for sources. This script still searches by
+    pattern rather than a single hardcoded path, since the exact install
+    folder name (e.g. "CW MCU v11.1") is user-chosen.
 
 .PARAMETER CwRoot
-    Root of your CodeWarrior for 56800/56800E installation, e.g.
-    "C:\Program Files (x86)\Freescale\CW MCU v11.2".
+    Root of your CodeWarrior for MCUs installation, e.g.
+    "C:\Freescale\CW MCU v11.1".
 
 .EXAMPLE
-    .\tools\Detect-Toolchain.ps1 -CwRoot "C:\Program Files (x86)\Freescale\CW MCU v11.2"
+    .\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.1"
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -30,18 +33,13 @@ if (-not (Test-Path $CwRoot)) {
     exit 1
 }
 
-Write-Host "Scanning $CwRoot for 56800/56800E command-line tools..." -ForegroundColor Cyan
+Write-Host "Scanning $CwRoot for CodeWarrior CLI tools..." -ForegroundColor Cyan
 
-# Pattern -> role. Patterns are deliberately loose (mwcc*/mwld*/mwasm* covers
-# both the mwcc56800/mwcc56800e and similarly-named linker/assembler variants
-# seen across CW releases); flash/debugger tools are matched by keyword since
-# their executable names are less standardized.
 $patterns = [ordered]@{
-    Compiler       = @('mwcc*56800*.exe', 'ccdsc*.exe')
-    Assembler      = @('mwasm*56800*.exe', 'mwasmdsp*.exe')
-    Linker         = @('mwld*56800*.exe')
-    FlashProgrammer = @('fflash.exe', '*56800*Flash*Programmer*.exe', '*FlashProgrammer*56800*.exe', '*DSC*Flash*.exe')
-    DebuggerShell  = @('cwdebug*.exe', '*Debugger*Shell*.exe', 'cwidecmdline.exe')
+    Build            = @('ecd.exe')
+    DebuggerShell    = @('cwidec.exe', 'cwide.exe')
+    FlashProgrammer  = @('fflash.exe')
+    Make             = @('make.exe')
 }
 
 $found = [ordered]@{}
@@ -55,7 +53,7 @@ foreach ($role in $patterns.Keys) {
     $matches = $matches | Select-Object -ExpandProperty FullName -Unique
 
     if ($matches.Count -eq 0) {
-        Write-Host "  [MISSING] $role — no match. See docs/SETUP.md step 4." -ForegroundColor Yellow
+        Write-Host "  [MISSING] $role — no match for $($patterns[$role] -join ', '). See docs/SETUP.md step 4." -ForegroundColor Yellow
         $found[$role] = $null
     }
     elseif ($matches.Count -eq 1) {
@@ -79,11 +77,10 @@ $lines = @(
     "# Machine-specific — not committed to git (see .gitignore)."
     ""
     "`$CwRoot = '$CwRoot'"
-    "`$CC     = '$($found.Compiler)'"
-    "`$ASM    = '$($found.Assembler)'"
-    "`$LD     = '$($found.Linker)'"
+    "`$ECD    = '$($found.Build)'"
+    "`$CWIDE  = '$($found.DebuggerShell)'"
     "`$FLASH  = '$($found.FlashProgrammer)'"
-    "`$DEBUG  = '$($found.DebuggerShell)'"
+    "`$MAKE   = '$($found.Make)'"
 )
 Set-Content -Path $configPath -Value $lines -Encoding UTF8
 
@@ -94,5 +91,5 @@ if ($found.Values -contains $null) {
     Write-Host "Some tools were not found automatically — fill them in by hand in config/toolchain.ps1 (see docs/SETUP.md step 4)." -ForegroundColor Yellow
 }
 if ($ambiguous.Count -gt 0) {
-    Write-Host "Ambiguous matches for: $($ambiguous -join ', ') — verify config/toolchain.ps1 picked the right one." -ForegroundColor Yellow
+    Write-Host "Ambiguous matches for: $($ambiguous -join ', ') — verify config/toolchain.ps1 picked the right one (e.g. multiple CodeWarrior versions installed)." -ForegroundColor Yellow
 }

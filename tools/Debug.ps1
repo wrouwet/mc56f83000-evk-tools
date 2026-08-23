@@ -1,17 +1,21 @@
 <#
 .SYNOPSIS
-    Launches CodeWarrior's Debugger Shell against the MC56F83000-EVK and
-    runs a TCL script against it — no Eclipse GUI required.
+    Runs a TCL script against CodeWarrior's Debugger Shell (cwide.exe /
+    cwidec.exe) — confirmed real executables, no Eclipse GUI required.
 
 .PARAMETER Script
     Path to a .tcl script under debug/ (e.g. debug\session.tcl).
 
+.PARAMETER Config
+    Build configuration whose output to debug (see tools/Build.ps1).
+
 .PARAMETER ElfPath
-    Override the default build/app.elf.
+    Override auto-discovery of the built .elf under project/.
 #>
 param(
     [Parameter(Mandatory = $true)]
     [string]$Script,
+    [string]$Config = 'flash_ldm_lpm_debug',
     [string]$ElfPath
 )
 
@@ -25,8 +29,8 @@ if (-not (Test-Path $configPath)) {
 }
 . $configPath
 
-if (-not $DEBUG -or -not (Test-Path $DEBUG)) {
-    Write-Error "DEBUG tool path is not set/valid in config/toolchain.ps1 (got: '$DEBUG'). See docs/SETUP.md step 4."
+if (-not $CWIDE -or -not (Test-Path $CWIDE)) {
+    Write-Error "CWIDE (cwide.exe/cwidec.exe) is not set to a valid path in config/toolchain.ps1 (got: '$CWIDE'). See docs/SETUP.md step 4."
     exit 1
 }
 
@@ -35,19 +39,27 @@ if (-not (Test-Path $Script)) {
     exit 1
 }
 
-if (-not $ElfPath) { $ElfPath = Join-Path $root 'build\app.elf' }
-if (-not (Test-Path $ElfPath)) {
-    Write-Error "$ElfPath not found — run tools/Build.ps1 first."
-    exit 1
+if (-not $ElfPath) {
+    $projectDir = Join-Path $root 'project'
+    $elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match [regex]::Escape($Config) } |
+        Select-Object -First 1
+    if (-not $elf) { $elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue | Select-Object -First 1 }
+    if (-not $elf) { Write-Error "No .elf found under project/ — run tools/Build.ps1 first."; exit 1 }
+    $ElfPath = $elf.FullName
 }
 
-Write-Host "Launching Debugger Shell with $Script against $ElfPath..." -ForegroundColor Cyan
+Write-Host "Launching Debugger Shell ($CWIDE) with $Script against $ElfPath..." -ForegroundColor Cyan
 
-# NOTE: exact switch for pointing the Debugger Shell at a startup TCL
-# script is version-dependent (commonly -Dcw.script=<path> for CW10+
-# Eclipse-based debug launches). Confirm against your version's Debugger
-# Manual (see docs/SETUP.md step 7) and adjust once.
-& $DEBUG "-Dcw.script=$Script" $ElfPath
+# cwide.exe/cwidec.exe are confirmed (per the same NXP CLI reference doc
+# as ecd.exe) to run a Debugger Shell TCL script headlessly. The exact
+# switch to point them at a startup script is NOT yet confirmed from that
+# doc — it references a separate mcuoneclipse.com walkthrough for the
+# scripting mechanics. Confirm the invocation shape against
+# {CW install}\Help\ once installed and adjust here; this is the
+# best-documented placeholder shape (Eclipse debug launches commonly take
+# -Dcw.script=<path>).
+& $CWIDE "-Dcw.script=$Script" $ElfPath
 $exitCode = $LASTEXITCODE
 
 if ($exitCode -ne 0) {

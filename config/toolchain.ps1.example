@@ -2,20 +2,23 @@
 #
 # Normally you don't hand-write this — run tools/Detect-Toolchain.ps1 and it
 # generates config/toolchain.ps1 for you with real, verified paths from your
-# install. This file exists as a reference for the shape it expects, and as
-# a fallback if you need to set paths manually because detection found
-# nothing (see docs/SETUP.md step 4).
+# install. This file exists as a reference for the shape it expects.
+#
+# All three tool names below are confirmed real (see docs/ARCHITECTURE.md
+# for sources), unlike earlier drafts of this repo that guessed at legacy
+# v8.x tool names.
 
-$CwRoot = 'C:\Program Files (x86)\Freescale\CW MCU v11.2'
+$CwRoot = 'C:\Freescale\CW MCU v11.1'
 
-# Compiler, assembler, linker (command-line build tools; see
-# docs/ARCHITECTURE.md for why these can't be hardcoded across versions)
-$CC    = "$CwRoot\DSP56800x_EABI_Tools\command_line_tools\mwcc56800e.exe"
-$ASM   = "$CwRoot\DSP56800x_EABI_Tools\command_line_tools\mwasmdsp.exe"
-$LD    = "$CwRoot\DSP56800x_EABI_Tools\command_line_tools\mwld56800e.exe"
+# Headless build driver (builds a whole Eclipse project directory)
+$ECD   = "$CwRoot\eclipse\ecd.exe"
 
-# Flash programmer (OSBDM) and Debugger Shell — names vary more; fill in
-# from your install's Help\56800x_Build_Tools_Reference.pdf if
-# Detect-Toolchain.ps1 didn't find them.
-$FLASH = "$CwRoot\path\to\FlashProgrammer.exe"
-$DEBUG = "$CwRoot\path\to\cwdebug.exe"
+# Debugger Shell — runs TCL scripts against the target, no GUI
+$CWIDE = "$CwRoot\eclipse\cwidec.exe"
+
+# 56800E Flash Programmer
+$FLASH = "$CwRoot\path\to\fflash.exe"
+
+# GNU make, bundled with CodeWarrior — only needed if you use
+# `ecd.exe -generateMakefiles` + `make` instead of `ecd.exe build` directly
+$MAKE  = "$CwRoot\gnu\bin\make.exe"

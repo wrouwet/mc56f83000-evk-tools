@@ -1,6 +1,9 @@
-# Shared helpers for CodeWarrior Debugger Shell TCL scripts.
+# Shared helpers for CodeWarrior Debugger Shell TCL scripts, run headlessly
+# via cwide.exe/cwidec.exe (confirmed real executables — see
+# docs/ARCHITECTURE.md). Target: MC56F83789 over OSJTAG (on-board, USB
+# port J8).
 #
-# The command names below (connect/target-select via GDI, reset, load,
+# The command names below (connect/target-select, reset, load,
 # go/step/mem/reg) are the conventional CodeWarrior Debugger Shell
 # vocabulary used across its device families, but the exact set and
 # spelling can differ by CodeWarrior version. If a command here errors as

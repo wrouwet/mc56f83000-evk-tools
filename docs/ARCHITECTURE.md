@@ -2,65 +2,95 @@
 
 ## The core has no open compiler
 
-The MC56F83000-EVK is built around a **56800E** core — a hybrid 16-bit
-DSP/MCU architecture Freescale designed before the ARM Cortex-M era took
-over its microcontroller line. Unlike the boards you'd normally build a
-CLI toolchain for (STM32, RP2040, ESP32 — all ARM/RISC-V with mature GCC
-backends), the 56800E has never had an upstream GCC or LLVM target. The
-compilers that exist for it are:
+The MC56F83000-EVK is built around a **56800E** core (device: MC56F83789)
+— a hybrid 16-bit DSP/MCU architecture Freescale designed before ARM
+Cortex-M took over its microcontroller line. There is no upstream GCC or
+LLVM target for it. The realistic compilers are NXP CodeWarrior (free) and
+Cosmic Software's 56800/E cross compiler (commercial). This repo builds
+around CodeWarrior.
 
-- **NXP CodeWarrior for 56800/56800E** — free, proprietary, the de facto
-  standard, ships with the SDK examples for this board.
-- **Cosmic Software's 56800/E cross compiler** — commercial, paid license.
+## Confirmed facts, with sources
 
-There is no third open option. This repo builds around CodeWarrior because
-it's free and is what the board's own example projects target.
+Everything below was verified against real NXP/Freescale documentation
+during setup, not assumed:
 
-## CodeWarrior is an IDE wrapper around real command-line tools
+**Toolchain version and workflow** — *"Getting Started with MCUXpresso SDK
+for MC56F83000-EVK"* (NXP, doc `MCUXSDKMC56F83000GSUG`, Rev. 0, November
+2020):
+- CodeWarrior for MCUs **v11.1 with Update 3** is the version NXP
+  documents for this board, downloaded from the "CodeWarrior® for MCUs"
+  product (`CW-MCU10`) — not the older "CW-56800E-DSC" v8.3 Classic IDE or
+  the "CW-DSC" v11.2 legacy DSC-only product, which are for older 56800E
+  boards.
+- The on-board debug interface is **OSJTAG**, via USB port **J8** — *not*
+  OSBDM. (An external P&E U-MultiLink is also supported, per the debug
+  launch configuration names `..._OSJTAG` and `..._PnE U-MultiLink` shown
+  in that guide.)
+- The MCUXpresso SDK for this board (e.g. `SDK_2.7.1_MC56F83000-EVK`)
+  ships working example projects — `hello_world`,
+  `driver_examples/gpio/button_toggle_led`, and others — each with a
+  correct linker command file for the exact device (confirmed filename:
+  `MC56F83789_Internal_PFlash_LDM.cmd`) and device headers. Per-device
+  "project template" packages are also downloadable separately, for
+  starting a custom project without demo application code.
+- The GUI workflow confirms two real build configuration names:
+  `flash_ldm_lpm_debug` (optimization level 1) and `flash_ldm_lpm_release`
+  (optimization level 4).
 
-CodeWarrior's Eclipse GUI is not the whole story — underneath it, the
-compiler, assembler, and linker are ordinary executables you can invoke
-directly, documented in the `56800x_Build_Tools_Reference.pdf` that ships
-with the install ("Using the Build Tools on the Command Line" chapter).
-They live under the install tree, typically in a path like
-`DSP56800x_EABI_Tools\command_line_tools\`. This repo's
-`tools/Detect-Toolchain.ps1` scans that tree for them rather than
-hardcoding names, because the exact executable names have changed across
-CodeWarrior releases (v7.x/v8.x vs v10.x/v11.x naming differs).
+**Headless build driver** — *"CodeWarrior 10 Command Line Interface –
+usage and examples"* (NXP community doc, by Jennie Zhang), confirmed
+still present and consistent in v11.1 (same Eclipse CDT-based
+architecture):
+- `{CodeWarrior install}\eclipse\ecd.exe` is the headless build driver.
+- It builds a whole **Eclipse project directory** (one containing a
+  `.cproject`/`.project` file) — not loose source files compiled
+  individually. This is why this repo's `project/` folder expects a real
+  copied-in CodeWarrior project rather than a `src/*.c` file list.
+- Confirmed syntax:
+  `ecd.exe build -data <workspace-path> -project <project-path> [-config <name> | -allConfigs] [-cleanBuild]`
+- A companion mode, `ecd.exe -generateMakefiles ...`, emits a real GNU
+  Makefile you can then drive with the `make.exe` CodeWarrior bundles
+  under `{install}\gnu\bin\` — useful if you'd rather not shell out to
+  `ecd.exe` directly for every build.
+- Two sibling executables in the same folder, `cwide.exe` and
+  `cwidec.exe`, are confirmed to run **Debugger Shell TCL scripts**
+  headlessly — this is the mechanism `tools/Debug.ps1` and `debug/*.tcl`
+  in this repo use.
 
-## Flashing and debugging: OSBDM, not GDB
+**Flash programmer** — *"56800E Flash Programmer User's Guide"*
+(Freescale, Rev. 0, 09/2005):
+- Executable name: **`fflash`**.
+- Confirmed syntax:
+  `fflash <flash.cfg file> <S-Record/ELF file(s)> [options]`
+- Target device and debug interface are selected via the `.cfg` file
+  passed as the first argument, not command-line flags.
+- `-USB` forces the USB interface (this board's OSJTAG path — J8 is a USB
+  connector). Other confirmed flags: `-erase=<all|unit|page>`,
+  `-jtagclk=<kHz>`, `-l<logfile>`, `-lock`.
+- Legacy `-LPT<n>`/`-p<PORT>` flags select a parallel-port Command
+  Converter — not relevant to this board's on-board USB debug circuit.
 
-The MC56F83000-EVK has an on-board **OSBDM** circuit (an open-hardware BDM
-debug interface design) wired to the 56800E's OnCE debug port. Two paths
-exist to drive it:
+## What's still a documented placeholder, not a guess
 
-- **CodeWarrior's own stack** (Flash Programmer + GDI debug backend):
-  documented to work from a plain command/DOS shell for flashing, and
-  CodeWarrior's **Debugger Shell** gives a TCL-scriptable command-line
-  debug session (breakpoints, memory/register access, stepping) without
-  the Eclipse GUI. This is the path this repo uses.
-- **USBDM** (open-source BDM host software): supports a limited range of
-  56800E-family parts, but its own documentation states the CodeWarrior
-  56800E Flash Programmer's GDI interface **does not work reliably** with
-  USBDM/OSBDM on this family — it's flagged as broken upstream. Not used
-  here for that reason.
+A few specifics couldn't be confirmed from publicly available docs before
+an actual CodeWarrior install was in hand, and are flagged inline in the
+scripts rather than silently assumed:
 
-There is also no stock GDB target for the 56800E core, so "debug over
-GDB" isn't an option the way it would be for an ARM board — CodeWarrior's
-Debugger Shell is the scriptable substitute.
+- The exact flag `cwide.exe`/`cwidec.exe` expects to point at a startup
+  TCL script.
+- Whether `fflash.exe` has a "run after programming" flag, or whether
+  that's configured inside `flash.cfg`.
+- The precise TCL command vocabulary the Debugger Shell exposes
+  (breakpoints, stepping, register/memory access) — `debug/common.tcl`
+  documents the assumed shape and where to verify it
+  (`{CodeWarrior install}\Help\`, once installed).
 
-## What "local, command-line only" means in practice here
+## Why not GDB, and why not the open-source USBDM project
 
-- Building: 100% CLI, driven by `tools/Build.ps1` calling the real
-  compiler/assembler/linker binaries directly.
-- Flashing/running: 100% CLI, via the Flash Programmer executable.
-- Debugging: CLI-scripted via TCL against the Debugger Shell — you write
-  or extend `.tcl` scripts instead of clicking through the Eclipse
-  debugger. The Debugger Shell process itself is still an NXP-shipped
-  binary (there's no way around that, per above), but nothing here
-  requires the Eclipse window to be open.
-
-The one manual, one-time GUI step this repo can't remove: opening
-CodeWarrior once to identify/copy the correct example project and linker
-`.cmd` file for your exact board variant (see README). After that,
-everything is scriptable.
+There's no stock GDB target for the 56800E core, so a GDB-based debug flow
+(the way you'd do it for an ARM board) isn't an option here. The
+open-source USBDM project supports a limited range of 56800E-family parts
+but its own documentation states the CodeWarrior 56800E Flash Programmer's
+GDI interface doesn't reliably work with USBDM/OSBDM — not used here for
+that reason, and moot anyway since this board's default interface is
+OSJTAG, which CodeWarrior drives directly via `fflash`/`ecd`/`cwide`.

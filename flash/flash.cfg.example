@@ -3,22 +3,22 @@
 # Guide" (Rev. 0, 09/2005): fflash takes a config file rather than
 # command-line flags for target device and debug interface selection.
 #
-# CodeWarrior ships real, per-device .cfg templates under an
-# "initialization" folder, historically at a path shaped like:
-#   {CodeWarrior install}\M56800E Support\initialization\
-# Copy the one matching your board's exact device variant (see chip
-# silkscreen, e.g. MC56F83789) into flash/flash.cfg — don't hand-write
-# this from scratch, the same way we don't hand-write the linker .cmd file
-# (see README "Important note on src/ and linker/").
+# This board's on-board debug interface is OSJTAG (via USB port J8) —
+# confirmed from NXP's "Getting Started with MCUXpresso SDK for
+# MC56F83000-EVK" guide. An external P&E U-MultiLink is also supported as
+# an alternative. Don't hand-write this file from scratch: CodeWarrior /
+# the MCUXpresso SDK project examples for this board ship a real,
+# per-device flash config alongside their debug launch settings — copy
+# that instead (see project/PLACEHOLDER.md and docs/SETUP.md step 5).
 #
-# What's confirmed from the manual so far:
+# What's confirmed from the fflash manual so far:
 #   - fflash defaults to "the current configured device on the CCS server"
 #     unless overridden
-#   - -USB overrides to use the USB interface (this is the OSBDM path)
-#   - -LPT<n> / -p<PORT> select a parallel-port Command Converter (legacy,
-#     not applicable to this board's on-board USB OSBDM)
+#   - -USB forces the USB interface (this board's OSJTAG path)
+#   - -LPT<n> / -p<PORT> select a legacy parallel-port Command Converter —
+#     not applicable to this board
 # What's NOT yet confirmed (verify against your installed manual, usually
 # under {CodeWarrior install}\Help\, before relying on it):
 #   - whether there's a dedicated run/reset-after-program flag, or whether
 #     "run after flash" is a setting inside the .cfg file itself
-#   - the exact device-name string this .cfg expects for MC56F83xxx parts
+#   - the exact device-name string this .cfg expects for MC56F83789

@@ -3,20 +3,18 @@
 # interface — this just shells out to them.
 
 PWSH := powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+CONFIG ?= flash_ldm_lpm_debug
 
-.PHONY: build flash run debug clean
+.PHONY: build flash debug clean
 
 build:
-	$(PWSH) tools/Build.ps1
+	$(PWSH) tools/Build.ps1 -Config $(CONFIG)
 
 clean:
-	$(PWSH) tools/Build.ps1 -Clean
+	$(PWSH) tools/Build.ps1 -Config $(CONFIG) -Clean
 
 flash: build
-	$(PWSH) tools/Flash.ps1
-
-run: build
-	$(PWSH) tools/Flash.ps1 -Run
+	$(PWSH) tools/Flash.ps1 -Config $(CONFIG)
 
 debug: build
-	$(PWSH) tools/Debug.ps1 -Script debug/session.tcl
+	$(PWSH) tools/Debug.ps1 -Config $(CONFIG) -Script debug/session.tcl

@@ -1,126 +1,117 @@
 # MC56F83000-EVK CLI Toolchain
 
 A local, command-line-only build / flash / debug environment for the NXP
-**MC56F83000-EVK** evaluation board (MC56F83xxx family, 56800E DSC core),
-driven entirely from PowerShell — no IDE window required for day-to-day work.
+**MC56F83000-EVK** evaluation board (MC56F83789, 56800E DSC core), driven
+entirely from PowerShell — no IDE window required for day-to-day work.
 
 ## Read this first: what this repo is and isn't
 
 The 56800E core is a proprietary hybrid DSP/MCU architecture. There is
-**no upstream GCC or LLVM backend** for it, and no open-source debug stack
-that reliably talks to this board's on-board OSBDM debug circuit (the
-open-source USBDM project explicitly documents its 56800E GDI path as
-broken — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+**no upstream GCC or LLVM backend** for it. The only realistic toolchain
+is **NXP CodeWarrior for MCUs v11.1** (Eclipse-based, free to download and
+register but closed-source) — confirmed as what NXP's own MCUXpresso SDK
+getting-started guide for this exact board uses.
 
-That means the only realistic compiler/assembler/linker/debugger for this
-chip is **NXP CodeWarrior for 56800/56800E**, which is free to download and
-register but is closed-source. This repo does **not** bundle it — it
-bundles scripts that drive it from the command line instead of the Eclipse
-GUI. You still need to install CodeWarrior once; everything after that is
+This repo does **not** bundle CodeWarrior — it bundles scripts that drive
+its real, documented command-line entry points instead of the Eclipse
+GUI. You still need to install it once; everything after that is
 scriptable.
 
-So concretely:
-
-- ✅ Fully scriptable, IDE-free build → flash → run → debug loop
+- ✅ Fully scriptable, IDE-free build → flash → run → debug loop, built on
+  **confirmed, sourced** executable names and syntax (see
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for citations) — not
+  guesses
 - ✅ Everything here (Makefile, PowerShell scripts, TCL debug scripts) is
   yours, MIT-licensed, and lives in this repo
-- ❌ The compiler/assembler/linker/flash-programmer/debugger binaries are
-  NXP's, installed separately, referenced by path — not redistributed here
-- ⚠️ Exact command-line tool names differ across CodeWarrior versions, so
-  this repo **auto-detects** them from your install rather than hardcoding
-  a guess (see `tools/Detect-Toolchain.ps1`)
+- ❌ CodeWarrior itself, and the MCUXpresso SDK example project you'll
+  seed `project/` from, are NXP's — installed separately, referenced by
+  path, not redistributed here
+- ⚠️ A couple of specifics are still unverified pending an actual install
+  (flagged inline in the scripts and in "What's confirmed" below) — this
+  repo is honest about the difference between the two
 
 ## Prerequisites
 
-1. **NXP CodeWarrior for 56800/56800E** (Development Studio for 56800/56800E
-   Digital Signal Controllers, "Classic" IDE line — v8.3 / v10.x / v11.2).
-   Free download from NXP, requires a (free) NXP account to register the
-   license. See [docs/SETUP.md](docs/SETUP.md) for the exact product page.
-2. Windows 10/11 with PowerShell (you already have this).
-3. The MC56F83000-EVK board, connected via its on-board OSBDM USB port.
-4. P&E Micro / OSBDM USB drivers — installed alongside CodeWarrior, or from
-   [pemicro.com](https://www.pemicro.com/opensda/).
-5. Optional: `make` (e.g. via MSYS2/Git Bash, which you already have) if you
-   prefer `make build` over `.\tools\Build.ps1`. Not required — the
-   PowerShell scripts are the primary interface.
+1. **NXP CodeWarrior for MCUs v11.1 (with Update 3)** — download from
+   NXP's "CodeWarrior® for MCUs" product page (product line `CW-MCU10`).
+   Free, requires a (free) NXP account. See
+   [docs/SETUP.md](docs/SETUP.md).
+2. **MCUXpresso SDK for MC56F83000-EVK** (e.g. `SDK_2.7.1_MC56F83000-EVK`)
+   — separate download, provides real example projects with correct
+   linker files, device headers, and startup code for your exact chip.
+3. Windows 10/11 with PowerShell (you already have this).
+4. The MC56F83000-EVK board, connected via its **on-board OSJTAG** USB
+   port (labeled **J8**) — this is the confirmed default debug interface
+   for this board, not the OSBDM/P&E-Multilink path used by some older
+   56800E boards. An external P&E U-MultiLink is supported as an
+   alternative if you have one.
+5. Optional: `make` if you prefer the `ecd.exe -generateMakefiles` +
+   `make` path over `ecd.exe build` directly — not required.
 
 ## Quick start
 
 ```powershell
 # 1. One-time: point this repo at your CodeWarrior install and let it
-#    find the real compiler/assembler/linker/flash/debugger executables.
-.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Program Files (x86)\Freescale\CW MCU v11.2"
+#    find the real ecd.exe / cwide.exe / fflash.exe executables.
+.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.1"
 
-# 2. Build
+# 2. Build (see project/PLACEHOLDER.md — project/ must hold a real
+#    CodeWarrior Eclipse project copied from the SDK first)
 .\tools\Build.ps1
 
-# 3. Flash + run on the board over OSBDM
-.\tools\Flash.ps1 -Run
+# 3. Flash over OSJTAG
+.\tools\Flash.ps1
 
 # 4. Debug (scripted TCL session against CodeWarrior's Debugger Shell)
 .\tools\Debug.ps1 -Script debug\session.tcl
 ```
 
 `make build`, `make flash`, `make debug`, `make clean` are thin wrappers
-around the same scripts, for anyone who wants a `Makefile` entry point.
+around the same scripts.
 
 ## Layout
 
 ```
 config/     toolchain.ps1 — machine-specific tool paths (generated, gitignored)
 tools/      Detect-Toolchain.ps1, Build.ps1, Flash.ps1, Debug.ps1
-debug/      TCL scripts for CodeWarrior's Debugger Shell
-flash/      flash.cfg — device/interface config for the fflash programmer (see note below)
-src/        your application source
-linker/     linker command file for your exact device (see note below)
-docs/       SETUP.md (install walkthrough), ARCHITECTURE.md (why it's built this way)
+debug/      TCL scripts for CodeWarrior's Debugger Shell (cwide.exe/cwidec.exe)
+flash/      flash.cfg — device/interface config for fflash.exe (see note below)
+project/    the actual CodeWarrior Eclipse project — see project/PLACEHOLDER.md
+docs/       SETUP.md (install walkthrough), ARCHITECTURE.md (why it's built this way, with citations)
 ```
 
-## What's confirmed vs. still placeholder
+## What's confirmed vs. still unverified
 
-Sourced directly from Freescale's *56800E Flash Programmer User's Guide*
-(Rev. 0, 09/2005):
+**Confirmed, with sources** (see docs/ARCHITECTURE.md):
 
-- The flash programmer executable is **`fflash`**, invoked as
-  `fflash <flash.cfg> <image file> [options]`.
-- Target device and debug interface are selected via the `.cfg` file, not
-  command-line flags — `-USB` forces the USB/OSBDM path.
-- Options like `-erase=`, `-jtagclk=`, `-l<logfile>` are confirmed real.
+- CodeWarrior for MCUs **v11.1 Update 3** is the toolchain NXP documents
+  for this board.
+- Debug interface is **OSJTAG**, on-board, via USB port **J8** (not
+  OSBDM).
+- The exact chip is **MC56F83789**.
+- Headless build driver is **`ecd.exe`**, syntax:
+  `ecd.exe build -data <workspace> -project <path> -config <name> [-cleanBuild]`.
+- Debugger Shell scripting driver is **`cwide.exe`/`cwidec.exe`**.
+- Flash programmer is **`fflash.exe`**, syntax:
+  `fflash <flash.cfg> <image> [-USB] [options]`.
+- The **MCUXpresso SDK** for this board ships real, working example
+  projects (`hello_world`, `driver_examples/gpio/button_toggle_led`) with
+  correct linker files and device headers — the right source for
+  `project/`, not hand-written register pokes.
 
-Still unverified (flagged inline in the scripts, confirm against the copy
-of the manual that ships with your CodeWarrior install once you have it):
+**Not yet verified** (flagged inline in the scripts; confirm once you have
+CodeWarrior installed, against the docs that ship with it):
 
-- Whether there's a dedicated "reset and run after programming" flag for
-  `fflash`, or whether that's a checkbox inside `flash.cfg` instead.
-- The exact compiler/assembler/linker executable names and flags (these
-  vary by CodeWarrior version — `Detect-Toolchain.ps1` finds the real ones
-  on your machine rather than guessing).
-- The exact TCL command vocabulary for the Debugger Shell.
-
-## Important note on `src/` and `linker/`
-
-This repo does **not** ship a hand-written linker command file or
-register-level startup code, on purpose: the 56800E memory map and startup
-sequence are device-variant-specific (flash/RAM size and layout differ
-across the MC56F83xxx family), and getting them wrong silently produces a
-binary that misbehaves on real hardware. NXP's own CodeWarrior install
-ships a verified example project and linker `.cmd` file for this exact
-board under its `Examples`/`Demos` tree.
-
-The fastest path to a **known-correct** first build is:
-
-1. Install CodeWarrior, open the bundled MC56F83000-EVK example project once
-   (GUI, one time only) to confirm which exact device variant your board
-   has (check the part number silkscreened on the chip, e.g. `MC56F83789`).
-2. Copy that example's `.c` sources and `.cmd` linker file into `src/` and
-   `linker/` in this repo.
-3. From then on, never open the IDE again — use the scripts here.
-
-`src/main.c` in this repo is a placeholder that documents this rather than
-guessing register addresses.
+- The exact flag `cwide.exe`/`cwidec.exe` uses to point at a startup TCL
+  script (`Debug.ps1` uses the common Eclipse-launch shape
+  `-Dcw.script=<path>` as a starting guess).
+- Whether `fflash.exe` has a dedicated "reset and run after programming"
+  flag, or whether that's a `.cfg` file setting.
+- The exact TCL command vocabulary the Debugger Shell accepts
+  (`debug/common.tcl` documents the assumption).
 
 ## License
 
 Scripts and docs in this repo: MIT (see [LICENSE](LICENSE)). This does not
-cover NXP CodeWarrior or P&E/OSBDM drivers, which remain under their
-respective vendor licenses.
+cover NXP CodeWarrior, the MCUXpresso SDK, or P&E/OSJTAG drivers, which
+remain under their respective vendor licenses.

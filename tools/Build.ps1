@@ -1,13 +1,23 @@
 <#
 .SYNOPSIS
-    Compiles, assembles, and links src/*.c (and src/*.asm, if any) into
-    build/app.elf using the CodeWarrior 56800E command-line tools.
+    Builds the CodeWarrior Eclipse project in project/ headlessly via
+    ecd.exe — confirmed syntax, no GUI required.
+
+.PARAMETER Config
+    Build configuration name. NXP's MC56F83000-EVK SDK examples use
+    "flash_ldm_lpm_debug" and "flash_ldm_lpm_release".
 
 .PARAMETER Clean
-    Remove build/ before building.
+    Pass -cleanBuild to ecd.exe (removes previous build output first).
+
+.PARAMETER Workspace
+    Eclipse workspace directory ecd.exe uses via -data. Defaults to
+    build\workspace under this repo; created if missing.
 #>
 param(
-    [switch]$Clean
+    [string]$Config = 'flash_ldm_lpm_debug',
+    [switch]$Clean,
+    [string]$Workspace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,58 +30,39 @@ if (-not (Test-Path $configPath)) {
 }
 . $configPath
 
-foreach ($tool in @('CC', 'ASM', 'LD')) {
-    $path = (Get-Variable $tool).Value
-    if (-not $path -or -not (Test-Path $path)) {
-        Write-Error "$tool is not set to a valid path in config/toolchain.ps1 (got: '$path'). See docs/SETUP.md step 4."
-        exit 1
-    }
-}
-
-$buildDir = Join-Path $root 'build'
-if ($Clean -and (Test-Path $buildDir)) {
-    Remove-Item $buildDir -Recurse -Force
-}
-New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
-
-$srcDir = Join-Path $root 'src'
-$cSources = Get-ChildItem -Path $srcDir -Filter '*.c' -File -ErrorAction SilentlyContinue
-$asmSources = Get-ChildItem -Path $srcDir -Filter '*.asm' -File -ErrorAction SilentlyContinue
-
-if (-not $cSources -and -not $asmSources) {
-    Write-Error "No sources found in src/. See README 'Important note on src/ and linker/'."
+if (-not $ECD -or -not (Test-Path $ECD)) {
+    Write-Error "ECD (ecd.exe) is not set to a valid path in config/toolchain.ps1 (got: '$ECD'). See docs/SETUP.md step 4."
     exit 1
 }
 
-$objects = @()
-
-foreach ($src in $cSources) {
-    $obj = Join-Path $buildDir "$($src.BaseName).o"
-    Write-Host "CC   $($src.Name)" -ForegroundColor Cyan
-    & $CC $src.FullName -o $obj
-    if ($LASTEXITCODE -ne 0) { Write-Error "Compile failed: $($src.Name)"; exit $LASTEXITCODE }
-    $objects += $obj
-}
-
-foreach ($src in $asmSources) {
-    $obj = Join-Path $buildDir "$($src.BaseName).o"
-    Write-Host "ASM  $($src.Name)" -ForegroundColor Cyan
-    & $ASM $src.FullName -o $obj
-    if ($LASTEXITCODE -ne 0) { Write-Error "Assemble failed: $($src.Name)"; exit $LASTEXITCODE }
-    $objects += $obj
-}
-
-$linkerCmd = Get-ChildItem -Path (Join-Path $root 'linker') -Filter '*.cmd' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $linkerCmd) {
-    Write-Error "No linker .cmd file found in linker/. Copy one from your CodeWarrior example project — see README step 5."
+$projectDir = Join-Path $root 'project'
+if (-not (Test-Path (Join-Path $projectDir '.cproject'))) {
+    Write-Error "project/.cproject not found. project/ must contain a real CodeWarrior Eclipse project — see project/PLACEHOLDER.md."
     exit 1
 }
 
-$outElf = Join-Path $buildDir 'app.elf'
-Write-Host "LD   -> build/app.elf (using $($linkerCmd.Name))" -ForegroundColor Cyan
-& $LD $objects -o $outElf -m $linkerCmd.FullName
-if ($LASTEXITCODE -ne 0) { Write-Error "Link failed"; exit $LASTEXITCODE }
+if (-not $Workspace) { $Workspace = Join-Path $root 'build\workspace' }
+New-Item -ItemType Directory -Force -Path $Workspace | Out-Null
 
-Write-Host "Build OK -> $outElf" -ForegroundColor Green
-Write-Host "NOTE: exact flags above (-o, -m) are CodeWarrior-version-dependent placeholders." -ForegroundColor Yellow
-Write-Host "      Verify against 56800x_Build_Tools_Reference.pdf and adjust this script once, then it's fixed for good." -ForegroundColor Yellow
+# Confirmed syntax (NXP community doc "CodeWarrior 10 Command Line
+# Interface – usage and examples", By Jennie Zhang):
+#   ecd.exe build -data <workspace> -project <path> [-config <name>] [-cleanBuild]
+$ecdArgs = @('build', '-data', $Workspace, '-project', $projectDir, '-config', $Config)
+if ($Clean) { $ecdArgs += '-cleanBuild' }
+
+Write-Host "ecd.exe $($ecdArgs -join ' ')" -ForegroundColor Cyan
+& $ECD @ecdArgs
+if ($LASTEXITCODE -ne 0) { Write-Error "Build failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+
+$elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match [regex]::Escape($Config) } |
+    Select-Object -First 1
+if (-not $elf) {
+    $elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+
+if ($elf) {
+    Write-Host "Build OK -> $($elf.FullName)" -ForegroundColor Green
+} else {
+    Write-Warning "Build reported success but no .elf was found under project/ — check ecd.exe output above."
+}

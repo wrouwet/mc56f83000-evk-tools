@@ -1,83 +1,103 @@
 # Setup walkthrough
 
-## 1. Install NXP CodeWarrior for 56800/56800E
+## 1. Install NXP CodeWarrior for MCUs v11.1
 
-- Go to NXP's CodeWarrior legacy tools page and find **"CodeWarrior
-  Development Studio for 56800/56800E Digital Signal Controllers"**
-  (product line `CW-56800E-DSC` / `CW-DSC`, "Classic IDE"). Search
-  nxp.com for that product code if the direct link has moved — NXP
-  reorganizes these URLs periodically.
+- Go to NXP's product page for **"CodeWarrior® for MCUs"** (product code
+  `CW-MCU10`; supports ColdFire, 56800/E DSC, Qorivva 56xx, RS08, S08,
+  S12Z). Search nxp.com for that product code if the direct link has
+  moved — NXP reorganizes these URLs periodically.
 - You'll need a free NXP account to download and to request the (free)
-  node-locked license for the Standard/Special edition.
-- Install to the default path, or note whatever path you choose — you'll
-  pass it to `Detect-Toolchain.ps1` in step 3.
-- Also install the P&E Micro / OSBDM USB drivers if the installer doesn't
-  bundle them (the CodeWarrior installer usually does).
+  node-locked license.
+- Install **v11.1**, then apply **Update 3** (`CW_MCU_11_1_Update3_...zip`)
+  — either via Help → Install New Software inside CodeWarrior once it's
+  running, or offline via the downloaded zip. This update is what adds
+  MC56F83xxx device support to the DSC toolchain — confirmed from NXP's
+  MCUXpresso SDK getting-started guide for this board.
+- Default install path is typically under `C:\Freescale\CW MCU v11.1` —
+  note wherever you actually install it, you'll pass it to
+  `Detect-Toolchain.ps1` in step 4.
 
-## 2. Connect the board
+## 2. Install the MCUXpresso SDK for MC56F83000-EVK
 
-Plug the MC56F83000-EVK into USB via its on-board OSBDM connector. Windows
-should enumerate a P&E/OSBDM USB device. If it shows as "Unknown Device",
-install the drivers from the CodeWarrior install or from
-<https://www.pemicro.com/opensda/>.
+Separately from CodeWarrior itself: get the SDK build for this exact
+board (e.g. `SDK_2.7.1_MC56F83000-EVK` or whatever the current version
+is) from NXP's MCUXpresso SDK builder. This is what provides real,
+verified example projects — you need this to seed `project/` (step 5).
 
-## 3. Identify your exact device variant
+## 3. Connect the board
 
-Look at the silkscreen on the DSC chip itself (e.g. `MC56F83789`). The
-MC56F83xxx family has several flash/RAM sizes — the linker command file
-and startup code must match. Open CodeWarrior once, use its "New Project"
-wizard or the bundled examples to confirm the exact part CodeWarrior
-detects, and note it.
+Plug the MC56F83000-EVK into USB via **port J8** (on-board OSJTAG debug +
+USB-to-UART bridge — confirmed from NXP's setup guide, not the OSBDM path
+some older 56800E boards use). Windows should enumerate the OSJTAG debug
+interface and a USB CDC serial port.
+
+If it's the first time this board has been connected to this PC,
+CodeWarrior may prompt to update the on-board JM60 firmware — this
+requires briefly bridging jumper **J6** and following CodeWarrior's
+on-screen instructions. The OSJTAG and USB CDC drivers are bundled with
+the CodeWarrior installer.
 
 ## 4. Detect the command-line tools
 
 ```powershell
-.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Program Files (x86)\Freescale\CW MCU v11.2"
+.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.1"
 ```
 
-This scans the install tree for the compiler, assembler, linker, flash
-programmer, and debugger shell executables, prints what it found, and
-writes `config/toolchain.ps1`. If it finds more than one candidate for a
-given tool (happens if multiple CodeWarrior versions/families are
-installed), it lists them all and asks you to edit `config/toolchain.ps1`
-to pick the right one.
+This scans the install tree for `ecd.exe`, `cwide.exe`/`cwidec.exe`,
+`fflash.exe`, and `make.exe`, prints what it found, and writes
+`config/toolchain.ps1`. These four executable names are confirmed real
+(see docs/ARCHITECTURE.md for sources) — detection should succeed
+cleanly. If `fflash.exe` isn't found, it may live under a separate "56800E
+Flash Programmer" sub-install rather than the main CodeWarrior tree —
+check `{CodeWarrior install}\..\` siblings, or reinstall selecting the
+Flash Programmer component.
 
-If detection finds **nothing** for a given tool, open
-`{CodeWarrior install}\Help\` and look for `56800x_Build_Tools_Reference.pdf`
-— it names the actual executables for your specific version. Add that path
-manually to `config/toolchain.ps1`.
+## 5. Seed `project/` from a known-good example
 
-## 5. Seed `src/` and `linker/` from a known-good example
+Rather than hand-writing register-level startup code (risky — wrong
+addresses silently misbehave on real hardware), copy a real project from
+the SDK:
 
-In CodeWarrior, open the example project for MC56F83000-EVK that matches
-your device variant (bundled under the install's `Examples` or `Demos`
-tree — check `{CodeWarrior install}\MC56800E_Examples\` or similar; the
-exact path varies by version). Copy:
+- **To verify the whole pipeline first**, copy the contents of
+  `<sdk_install>\boards\evkmc56f83000\demo_apps\hello_world\codewarrior\`
+  into this repo's `project/` folder. It prints "hello world" over the
+  OSJTAG-bridged COM port (115200 8N1 — find the port number in Device
+  Manager under Ports (COM & LPT)).
+- **To start your own application**, copy
+  `<sdk_install>\boards\evkmc56f83000\driver_examples\gpio\button_toggle_led\codewarrior\`
+  instead (the real on-board-LED example), or download the
+  `project_template_MC56F83789` package linked from the SDK docs for a
+  minimal starting point (startup code, device headers, linker file, no
+  demo logic).
 
-- Its `.c`/`.h` sources → this repo's `src/`
-- Its linker `.cmd` file → this repo's `linker/`
-
-into this repo, replacing the placeholders. This guarantees a correct
-memory map and startup sequence instead of hand-guessed register
-addresses.
+Also copy or create `flash/flash.cfg` from whatever `.cfg` the chosen
+example project references for its OSJTAG launch configuration — see
+`flash/flash.cfg.example` for what's confirmed about its format.
 
 ## 6. Build, flash, debug
 
 ```powershell
-.\tools\Build.ps1
-.\tools\Flash.ps1 -Run
+.\tools\Build.ps1                              # -Config flash_ldm_lpm_debug by default
+.\tools\Flash.ps1
 .\tools\Debug.ps1 -Script debug\session.tcl
 ```
 
 If `Flash.ps1` can't find the board, confirm it enumerates in Device
-Manager and that no other instance of CodeWarrior/P&E software is holding
-the USB connection open — the OSBDM interface only accepts one client at a
-time.
+Manager and that no other CodeWarrior/P&E process is holding the debug
+interface open — only one client can use it at a time.
 
-## 7. Debugger Shell TCL command names
+## 7. Debugger Shell TCL command names, and the exact script-launch flag
 
-The exact TCL command set exposed by CodeWarrior's Debugger Shell can
-differ slightly by version. `debug/common.tcl` documents the commands this
-repo assumes; if a script errors on an unrecognized command, open
-`{CodeWarrior install}\Help\` and look for the Debugger Manual / Debugger
-Shell reference for your version, and adjust `debug/common.tcl` to match.
+Two specifics are placeholders until verified against your actual
+install (see docs/ARCHITECTURE.md "What's still a documented placeholder"):
+
+- The flag `cwide.exe`/`cwidec.exe` uses to point at a startup TCL script
+  — `tools/Debug.ps1` guesses the common Eclipse-launch shape
+  `-Dcw.script=<path>`.
+- The TCL command vocabulary itself (`debug/common.tcl`).
+
+Open `{CodeWarrior install}\Help\` and look for the Debugger Manual /
+Common Features Guide for v11.1, or run `cwidec.exe -help` /
+`cwidec.exe -?` directly, and adjust `tools/Debug.ps1` and
+`debug/common.tcl` to match — once fixed, every script here picks up the
+correction automatically.
