@@ -70,10 +70,32 @@ around the same scripts, for anyone who wants a `Makefile` entry point.
 config/     toolchain.ps1 — machine-specific tool paths (generated, gitignored)
 tools/      Detect-Toolchain.ps1, Build.ps1, Flash.ps1, Debug.ps1
 debug/      TCL scripts for CodeWarrior's Debugger Shell
+flash/      flash.cfg — device/interface config for the fflash programmer (see note below)
 src/        your application source
 linker/     linker command file for your exact device (see note below)
 docs/       SETUP.md (install walkthrough), ARCHITECTURE.md (why it's built this way)
 ```
+
+## What's confirmed vs. still placeholder
+
+Sourced directly from Freescale's *56800E Flash Programmer User's Guide*
+(Rev. 0, 09/2005):
+
+- The flash programmer executable is **`fflash`**, invoked as
+  `fflash <flash.cfg> <image file> [options]`.
+- Target device and debug interface are selected via the `.cfg` file, not
+  command-line flags — `-USB` forces the USB/OSBDM path.
+- Options like `-erase=`, `-jtagclk=`, `-l<logfile>` are confirmed real.
+
+Still unverified (flagged inline in the scripts, confirm against the copy
+of the manual that ships with your CodeWarrior install once you have it):
+
+- Whether there's a dedicated "reset and run after programming" flag for
+  `fflash`, or whether that's a checkbox inside `flash.cfg` instead.
+- The exact compiler/assembler/linker executable names and flags (these
+  vary by CodeWarrior version — `Detect-Toolchain.ps1` finds the real ones
+  on your machine rather than guessing).
+- The exact TCL command vocabulary for the Debugger Shell.
 
 ## Important note on `src/` and `linker/`
 

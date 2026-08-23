@@ -36,14 +36,28 @@ if (-not (Test-Path $ElfPath)) {
     exit 1
 }
 
+$flashCfg = Join-Path $root 'flash\flash.cfg'
+if (-not (Test-Path $flashCfg)) {
+    Write-Error "flash/flash.cfg not found. Copy a device-matched template from your CodeWarrior install — see flash/flash.cfg.example."
+    exit 1
+}
+
 Write-Host "Flashing $ElfPath over OSBDM..." -ForegroundColor Cyan
 
-# NOTE: exact CLI switches for the 56800E Flash Programmer are
-# version-dependent. Confirm against your install's docs (see
-# docs/SETUP.md) and adjust this invocation once — after that it's fixed.
-# Typical shape: FlashProgrammer.exe <image> -device <part> -interface OSBDM [-run]
-$flashArgs = @($ElfPath)
-if ($Run) { $flashArgs += '-run' }
+# Confirmed syntax (Freescale "56800E Flash Programmer User's Guide", Rev 0,
+# 09/2005): fflash <flash.cfg> <image file(s)> [options]
+#   -USB          force the USB (OSBDM) interface — this board's path
+#   -erase=<all|unit|page>   defaults to "unit" if omitted
+#   -jtagclk=<kHz>           JTAG clock, default 800
+#   -l<logfile>              redirect messages to a log file
+# NOT yet confirmed: a dedicated run/reset-after-program flag. If -Run is
+# requested and fflash has no such flag, "running" may instead need a
+# separate reset triggered via tools/Debug.ps1 (see debug/run.tcl) — verify
+# against the manual shipped in your install and adjust here once.
+$flashArgs = @($flashCfg, $ElfPath, '-USB')
+if ($Run) {
+    Write-Warning "No confirmed 'run after flash' flag for fflash yet — verify against your install's Flash Programmer manual. Falling back to a separate reset via tools/Debug.ps1 -Script debug/run.tcl if this doesn't already leave the target running."
+}
 
 & $FLASH @flashArgs
 if ($LASTEXITCODE -ne 0) {

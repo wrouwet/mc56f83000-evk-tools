@@ -40,7 +40,7 @@ $patterns = [ordered]@{
     Compiler       = @('mwcc*56800*.exe', 'ccdsc*.exe')
     Assembler      = @('mwasm*56800*.exe', 'mwasmdsp*.exe')
     Linker         = @('mwld*56800*.exe')
-    FlashProgrammer = @('*56800*Flash*Programmer*.exe', '*FlashProgrammer*56800*.exe', '*DSC*Flash*.exe')
+    FlashProgrammer = @('fflash.exe', '*56800*Flash*Programmer*.exe', '*FlashProgrammer*56800*.exe', '*DSC*Flash*.exe')
     DebuggerShell  = @('cwdebug*.exe', '*Debugger*Shell*.exe', 'cwidecmdline.exe')
 }
 
