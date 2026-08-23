@@ -35,7 +35,7 @@ if (-not $ElfPath) {
         Where-Object { $_.FullName -match [regex]::Escape($Config) } |
         Select-Object -First 1
     if (-not $elf) { $elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue | Select-Object -First 1 }
-    if (-not $elf) { Write-Error "No .elf found under project/ — run tools/Build.ps1 first."; exit 1 }
+    if (-not $elf) { Write-Error "No .elf found under project/ - run tools/Build.ps1 first."; exit 1 }
     $ElfPath = $elf.FullName
 }
 if (-not (Test-Path $ElfPath)) {
@@ -45,7 +45,7 @@ if (-not (Test-Path $ElfPath)) {
 
 $flashCfg = Join-Path $root 'flash\flash.cfg'
 if (-not (Test-Path $flashCfg)) {
-    Write-Error "flash/flash.cfg not found. Copy a device-matched template — see flash/flash.cfg.example."
+    Write-Error "flash/flash.cfg not found. Copy a device-matched template - see flash/flash.cfg.example."
     exit 1
 }
 
@@ -54,7 +54,7 @@ Write-Host "Flashing $ElfPath over OSJTAG (board's on-board USB debug port, J8).
 # Confirmed syntax (Freescale "56800E Flash Programmer User's Guide", Rev
 # 0, 09/2005): fflash <flash.cfg> <image file(s)> [options]
 #   -USB   force the USB interface (this board's on-board OSJTAG path)
-# NOT yet confirmed: a dedicated run/reset-after-program flag — verify
+# NOT yet confirmed: a dedicated run/reset-after-program flag - verify
 # against the manual shipped in your install (docs/SETUP.md step 4).
 & $FLASH $flashCfg $ElfPath '-USB'
 if ($LASTEXITCODE -ne 0) {

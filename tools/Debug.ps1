@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Runs a TCL script against CodeWarrior's Debugger Shell (cwide.exe /
-    cwidec.exe) — confirmed real executables, no Eclipse GUI required.
+    cwidec.exe) - confirmed real executables, no Eclipse GUI required.
 
 .PARAMETER Script
     Path to a .tcl script under debug/ (e.g. debug\session.tcl).
@@ -45,7 +45,7 @@ if (-not $ElfPath) {
         Where-Object { $_.FullName -match [regex]::Escape($Config) } |
         Select-Object -First 1
     if (-not $elf) { $elf = Get-ChildItem -Path $projectDir -Recurse -Filter '*.elf' -ErrorAction SilentlyContinue | Select-Object -First 1 }
-    if (-not $elf) { Write-Error "No .elf found under project/ — run tools/Build.ps1 first."; exit 1 }
+    if (-not $elf) { Write-Error "No .elf found under project/ - run tools/Build.ps1 first."; exit 1 }
     $ElfPath = $elf.FullName
 }
 
@@ -54,7 +54,7 @@ Write-Host "Launching Debugger Shell ($CWIDE) with $Script against $ElfPath..." 
 # cwide.exe/cwidec.exe are confirmed (per the same NXP CLI reference doc
 # as ecd.exe) to run a Debugger Shell TCL script headlessly. The exact
 # switch to point them at a startup script is NOT yet confirmed from that
-# doc — it references a separate mcuoneclipse.com walkthrough for the
+# doc - it references a separate mcuoneclipse.com walkthrough for the
 # scripting mechanics. Confirm the invocation shape against
 # {CW install}\Help\ once installed and adjust here; this is the
 # best-documented placeholder shape (Eclipse debug launches commonly take

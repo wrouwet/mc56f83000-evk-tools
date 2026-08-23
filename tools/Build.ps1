@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Builds the CodeWarrior Eclipse project in project/ headlessly via
-    ecd.exe — confirmed syntax, no GUI required.
+    ecd.exe - confirmed syntax, no GUI required.
 
 .PARAMETER Config
     Build configuration name. NXP's MC56F83000-EVK SDK examples use
@@ -37,7 +37,7 @@ if (-not $ECD -or -not (Test-Path $ECD)) {
 
 $projectDir = Join-Path $root 'project'
 if (-not (Test-Path (Join-Path $projectDir '.cproject'))) {
-    Write-Error "project/.cproject not found. project/ must contain a real CodeWarrior Eclipse project — see project/PLACEHOLDER.md."
+    Write-Error "project/.cproject not found. project/ must contain a real CodeWarrior Eclipse project - see project/PLACEHOLDER.md."
     exit 1
 }
 
@@ -45,7 +45,7 @@ if (-not $Workspace) { $Workspace = Join-Path $root 'build\workspace' }
 New-Item -ItemType Directory -Force -Path $Workspace | Out-Null
 
 # Confirmed syntax (NXP community doc "CodeWarrior 10 Command Line
-# Interface – usage and examples", By Jennie Zhang):
+# Interface - usage and examples", By Jennie Zhang):
 #   ecd.exe build -data <workspace> -project <path> [-config <name>] [-cleanBuild]
 $ecdArgs = @('build', '-data', $Workspace, '-project', $projectDir, '-config', $Config)
 if ($Clean) { $ecdArgs += '-cleanBuild' }
@@ -64,5 +64,5 @@ if (-not $elf) {
 if ($elf) {
     Write-Host "Build OK -> $($elf.FullName)" -ForegroundColor Green
 } else {
-    Write-Warning "Build reported success but no .elf was found under project/ — check ecd.exe output above."
+    Write-Warning "Build reported success but no .elf was found under project/ - check ecd.exe output above."
 }
