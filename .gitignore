@@ -1,0 +1,7 @@
+build/
+config/toolchain.ps1
+*.o
+*.elf
+*.abs
+*.lst
+*.map
