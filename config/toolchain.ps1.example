@@ -8,7 +8,7 @@
 # for sources), unlike earlier drafts of this repo that guessed at legacy
 # v8.x tool names.
 
-$CwRoot = 'C:\Freescale\CW MCU v11.1'
+$CwRoot = 'C:\Freescale\CW MCU v11.2'
 
 # Headless build driver (builds a whole Eclipse project directory)
 $ECD   = "$CwRoot\eclipse\ecd.exe"

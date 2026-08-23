@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Scans a CodeWarrior for MCUs (v11.1+, Eclipse-based) install tree for
+    Scans a CodeWarrior (v11.1+, Eclipse-based - e.g. CodeWarrior for DSC
+    v11.2) install tree for
     the confirmed real executables - ecd.exe, cwide.exe/cwidec.exe,
     fflash.exe - and writes their paths to config/toolchain.ps1.
 
@@ -16,10 +17,10 @@
 
 .PARAMETER CwRoot
     Root of your CodeWarrior for MCUs installation, e.g.
-    "C:\Freescale\CW MCU v11.1".
+    "C:\Freescale\CW MCU v11.2".
 
 .EXAMPLE
-    .\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.1"
+    .\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.2"
 #>
 param(
     [Parameter(Mandatory = $true)]

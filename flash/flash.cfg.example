@@ -6,10 +6,14 @@
 # This board's on-board debug interface is OSJTAG (via USB port J8) —
 # confirmed from NXP's "Getting Started with MCUXpresso SDK for
 # MC56F83000-EVK" guide. An external P&E U-MultiLink is also supported as
-# an alternative. Don't hand-write this file from scratch: CodeWarrior /
-# the MCUXpresso SDK project examples for this board ship a real,
-# per-device flash config alongside their debug launch settings — copy
-# that instead (see project/PLACEHOLDER.md and docs/SETUP.md step 5).
+# an alternative. Don't hand-write this file from scratch: CodeWarrior
+# ships a real, per-device flash config in its own install tree — copy
+# {CodeWarrior install}\MCU\M56800x Support\56800E flash programmer\
+# MC56F837xx.cfg (yes, despite the "837xx" name — check its `mcu` line,
+# it targets `mc56f83789` directly). This is CONFIRMED WORKING: verified
+# by actually flashing and running hello_world on real MC56F83000-EVK
+# hardware with this exact file, output read back over the OSJTAG serial
+# bridge (see docs/SETUP.md step 6).
 #
 # What's confirmed from the fflash manual so far:
 #   - fflash defaults to "the current configured device on the CCS server"
@@ -17,8 +21,13 @@
 #   - -USB forces the USB interface (this board's OSJTAG path)
 #   - -LPT<n> / -p<PORT> select a legacy parallel-port Command Converter —
 #     not applicable to this board
+#   - the device string is set via `mcu mc56f83789` inside the .cfg file,
+#     not a command-line flag
 # What's NOT yet confirmed (verify against your installed manual, usually
 # under {CodeWarrior install}\Help\, before relying on it):
 #   - whether there's a dedicated run/reset-after-program flag, or whether
 #     "run after flash" is a setting inside the .cfg file itself
-#   - the exact device-name string this .cfg expects for MC56F83789
+# Known gotcha, not a config problem: FFLASH.exe's CLI has a real bug
+# where a failed connection exits silently (code 1, zero output, nothing
+# logged) — see docs/SETUP.md step 6 for the diagnosis path (use the GUI
+# 56800E Flash Programmer.exe to see the actual error instead).

@@ -8,9 +8,12 @@ entirely from PowerShell — no IDE window required for day-to-day work.
 
 The 56800E core is a proprietary hybrid DSP/MCU architecture. There is
 **no upstream GCC or LLVM backend** for it. The only realistic toolchain
-is **NXP CodeWarrior for MCUs v11.1** (Eclipse-based, free to download and
-register but closed-source) — confirmed as what NXP's own MCUXpresso SDK
-getting-started guide for this exact board uses.
+is **NXP CodeWarrior for DSC v11.2 + SP1** (Eclipse-based, free to
+download and register but closed-source) — confirmed as what NXP's
+current MCUXpresso SDK docs for this exact board require. Note: this is
+a different product from "CodeWarrior for MCUs v11.1" — v11.1 (even with
+Update 3) cannot build current SDK releases for this board; see
+docs/SETUP.md step 1 for why.
 
 This repo does **not** bundle CodeWarrior — it bundles scripts that drive
 its real, documented command-line entry points instead of the Eclipse
@@ -32,10 +35,12 @@ scriptable.
 
 ## Prerequisites
 
-1. **NXP CodeWarrior for MCUs v11.1 (with Update 3)** — download from
-   NXP's "CodeWarrior® for MCUs" product page (product line `CW-MCU10`).
-   Free, requires a (free) NXP account. See
-   [docs/SETUP.md](docs/SETUP.md).
+1. **NXP CodeWarrior for DSC v11.2 + SP1** — download from NXP's
+   "CodeWarrior for 56800 Digital Signal Controller v11.2" product page
+   (product code `CW-DSC`) — **not** the "CodeWarrior for MCUs v11.1"
+   page, which is a different, older product that can't build current
+   SDK releases for this board. Free, requires a (free) NXP account. See
+   [docs/SETUP.md](docs/SETUP.md) step 1.
 2. **MCUXpresso SDK for MC56F83000-EVK** (e.g. `SDK_2.7.1_MC56F83000-EVK`)
    — separate download, provides real example projects with correct
    linker files, device headers, and startup code for your exact chip.
@@ -53,7 +58,7 @@ scriptable.
 ```powershell
 # 1. One-time: point this repo at your CodeWarrior install and let it
 #    find the real ecd.exe / cwide.exe / fflash.exe executables.
-.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.1"
+.\tools\Detect-Toolchain.ps1 -CwRoot "C:\Freescale\CW MCU v11.2"
 
 # 2. Build (see project/PLACEHOLDER.md — project/ must hold a real
 #    CodeWarrior Eclipse project copied from the SDK first)
@@ -84,13 +89,20 @@ docs/       SETUP.md (install walkthrough), ARCHITECTURE.md (why it's built this
 
 **Confirmed, with sources** (see docs/ARCHITECTURE.md):
 
-- CodeWarrior for MCUs **v11.1 Update 3** is the toolchain NXP documents
-  for this board.
+- CodeWarrior for DSC **v11.2 + SP1** is the toolchain current
+  MCUXpresso SDK releases actually require for this board — confirmed
+  from NXP's own current SDK build docs, and the hard way: v11.1 + Update
+  3 was tried first and provably cannot build this SDK release (see
+  docs/SETUP.md step 1 for the full story).
 - Debug interface is **OSJTAG**, on-board, via USB port **J8** (not
   OSBDM).
 - The exact chip is **MC56F83789**.
 - Headless build driver is **`ecd.exe`**, syntax:
-  `ecd.exe build -data <workspace> -project <path> -config <name> [-cleanBuild]`.
+  `ecd.exe build -data <workspace> -project <path> -config <name> [-cleanBuild]`
+  — **verified working end-to-end**: `hello_world` builds clean to a
+  154 KB `.elf` with CW 11.2 + SP1, after fixing the empty "Additional
+  Libraries" linker setting the SDK ships that project with (see
+  docs/SETUP.md step 5).
 - Debugger Shell scripting driver is **`cwide.exe`/`cwidec.exe`**.
 - Flash programmer is **`fflash.exe`**, syntax:
   `fflash <flash.cfg> <image> [-USB] [options]`.
@@ -99,12 +111,26 @@ docs/       SETUP.md (install walkthrough), ARCHITECTURE.md (why it's built this
   correct linker files and device headers — the right source for
   `project/`, not hand-written register pokes.
 
+**Also confirmed, on real hardware:** flash → run → verified. `flash/
+flash.cfg` is CodeWarrior's own `MC56F837xx.cfg` (targets `mc56f83789`
+despite the filename) — `hello_world` was flashed to a physical
+MC56F83000-EVK and its `hello world.` banner read back over the OSJTAG
+serial bridge. First-time board+toolchain pairings need a one-time JM60
+firmware update (via CodeWarrior's IDE, bridging jumper J6) — see
+docs/SETUP.md step 6. Also: `FFLASH.exe`'s CLI has a real bug where a
+failed connection exits silently with zero output — use the GUI
+`56800E Flash Programmer.exe` to see actual errors if `Flash.ps1` fails
+mysteriously (docs/SETUP.md step 6 has the full diagnosis).
+
 **Not yet verified** (flagged inline in the scripts; confirm once you have
 CodeWarrior installed, against the docs that ship with it):
 
 - The exact flag `cwide.exe`/`cwidec.exe` uses to point at a startup TCL
   script (`Debug.ps1` uses the common Eclipse-launch shape
-  `-Dcw.script=<path>` as a starting guess).
+  `-Dcw.script=<path>` as a starting guess) — confirmed *not* a bare CLI
+  flag; `cwidec.exe -help` isn't recognized and instead drops into an
+  interactive TCL REPL on stdin, so the real mechanism is likely stdin
+  redirection or an in-REPL `source` command.
 - Whether `fflash.exe` has a dedicated "reset and run after programming"
   flag, or whether that's a `.cfg` file setting.
 - The exact TCL command vocabulary the Debugger Shell accepts

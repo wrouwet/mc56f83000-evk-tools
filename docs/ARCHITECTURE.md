@@ -14,28 +14,53 @@ around CodeWarrior.
 Everything below was verified against real NXP/Freescale documentation
 during setup, not assumed:
 
-**Toolchain version and workflow** — *"Getting Started with MCUXpresso SDK
-for MC56F83000-EVK"* (NXP, doc `MCUXSDKMC56F83000GSUG`, Rev. 0, November
-2020):
-- CodeWarrior for MCUs **v11.1 with Update 3** is the version NXP
-  documents for this board, downloaded from the "CodeWarrior® for MCUs"
-  product (`CW-MCU10`) — not the older "CW-56800E-DSC" v8.3 Classic IDE or
-  the "CW-DSC" v11.2 legacy DSC-only product, which are for older 56800E
-  boards.
+**Toolchain version — corrected after actually building, not just
+reading docs.** An earlier revision of this file (following NXP's
+November 2020 *"Getting Started with MCUXpresso SDK for
+MC56F83000-EVK"*, doc `MCUXSDKMC56F83000GSUG`) said CodeWarrior for MCUs
+**v11.1 + Update 3** was the right toolchain, and dismissed "CW-DSC
+v11.2" as an older, unrelated legacy product. That was correct for the
+SDK release that 2020 doc was written against
+(`SDK_2.7.1_MC56F83000-EVK`) — it's wrong for current SDK releases.
+
+What actually happened: v11.1 + Update 3, fully installed, builds this
+repo's `hello_world` all the way through compilation and then fails at
+the link stage two different ways — first with `Linker command file
+error ... Expecting: MEMORY` (its bundled linker, even Update 3's 2020
+build, doesn't parse the `FLASH_PARTITION{}` block or `AFTER()`
+expressions the SDK's generated `.cmd` files use), and, after swapping in
+an older static-syntax `.cmd` template to work around that, with
+`Undefined : "Fmemset"` / `"ARTDIVU32UZ_2"` / etc. — v11.1's
+`DSP56800x_EABI_Tools` tree has no `lib/` subfolder at all, so there's no
+`libc.lib`/`librt.lib` to link against no matter what.
+
+**CodeWarrior for DSC v11.2 + SP1** (product code `CW-DSC` — yes, the
+same product the 2020 doc calls out as *not* what you want) is what
+current MCUXpresso SDK releases actually target, per NXP's present-day
+SDK docs (*"Build and run SDK example on codewarrior"*, MCUXpresso SDK
+25.06.00/26.06.00 doc tree). Confirmed empirically: v11.2 + SP1's linker
+parses the SDK-generated `.cmd` files with no changes needed, and its
+`DSP56800x_EABI_Tools/lib/lpm/{ldm,sdm}/o4p/` holds the `libc.lib`/
+`librt.lib` every SDK demo project links against. `hello_world` builds
+clean to a 154 KB `.elf` on this toolchain (see docs/SETUP.md step 5 for
+the one remaining fix that project's own `.cproject` needed).
+
+Other facts from the original research, still holding:
 - The on-board debug interface is **OSJTAG**, via USB port **J8** — *not*
   OSBDM. (An external P&E U-MultiLink is also supported, per the debug
   launch configuration names `..._OSJTAG` and `..._PnE U-MultiLink` shown
-  in that guide.)
-- The MCUXpresso SDK for this board (e.g. `SDK_2.7.1_MC56F83000-EVK`)
-  ships working example projects — `hello_world`,
-  `driver_examples/gpio/button_toggle_led`, and others — each with a
-  correct linker command file for the exact device (confirmed filename:
-  `MC56F83789_Internal_PFlash_LDM.cmd`) and device headers. Per-device
-  "project template" packages are also downloadable separately, for
-  starting a custom project without demo application code.
-- The GUI workflow confirms two real build configuration names:
-  `flash_ldm_lpm_debug` (optimization level 1) and `flash_ldm_lpm_release`
-  (optimization level 4).
+  in NXP's getting-started guide.)
+- The MCUXpresso SDK for this board ships working example projects —
+  `hello_world`, `driver_examples/gpio/button_toggle_led`, and others —
+  each with a linker command file for the exact device (confirmed
+  filename: `MC56F83789_Internal_PFlash_LDM.cmd`) and device headers.
+  Per-device "project template" packages are also downloadable
+  separately, for starting a custom project without demo application
+  code.
+- The GUI workflow confirms two real build configuration names per
+  memory model: `flash_ldm_lpm_debug` (optimization level 1) and
+  `flash_ldm_lpm_release` (optimization level 4) — and their `sdm`
+  counterparts.
 
 **Headless build driver** — *"CodeWarrior 10 Command Line Interface –
 usage and examples"* (NXP community doc, by Jennie Zhang), confirmed

@@ -35,11 +35,17 @@ if (-not $ECD -or -not (Test-Path $ECD)) {
     exit 1
 }
 
-$projectDir = Join-Path $root 'project'
-if (-not (Test-Path (Join-Path $projectDir '.cproject'))) {
-    Write-Error "project/.cproject not found. project/ must contain a real CodeWarrior Eclipse project - see project/PLACEHOLDER.md."
+$projectRoot = Join-Path $root 'project'
+# SDK example projects put .cproject in a codewarrior\ subfolder alongside
+# the source files (which it references via relative paths like
+# ..\board.c) rather than at the example's root - so search for it rather
+# than assuming a fixed depth.
+$cprojectFile = Get-ChildItem -Path $projectRoot -Recurse -Filter '.cproject' -Force -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $cprojectFile) {
+    Write-Error "No .cproject found anywhere under project/. project/ must contain a real CodeWarrior Eclipse project - see project/PLACEHOLDER.md."
     exit 1
 }
+$projectDir = $cprojectFile.DirectoryName
 
 if (-not $Workspace) { $Workspace = Join-Path $root 'build\workspace' }
 New-Item -ItemType Directory -Force -Path $Workspace | Out-Null

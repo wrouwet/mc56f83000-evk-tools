@@ -5,3 +5,4 @@ config/toolchain.ps1
 *.abs
 *.lst
 *.map
+*.log
