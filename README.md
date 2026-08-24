@@ -115,6 +115,14 @@ The stock demo echoed UART input back; that was dropped because
 being typed. If you want both, poll the UART non-blockingly instead of
 restoring the blocking loop.
 
+To build something else from the SDK instead, `gpio_button_toggle_led`
+(`boards/evkmc56f83000/demo_apps/`) is the closest official LED example.
+Point the Makefile's `C_SRCS`/`vpath` at its sources.
+
+⚠️ The board has a **DC barrel jack whose rating NXP doesn't document**
+anywhere findable — don't plug an adapter into it. USB alone powers the
+board; see [docs/SETUP.md](docs/SETUP.md) step 6.
+
 ## What's confirmed vs. still unverified
 
 **Confirmed, with sources** (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):

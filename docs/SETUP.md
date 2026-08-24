@@ -137,6 +137,19 @@ some older 56800E boards use). Windows should enumerate an
 `OSBDM/OSJTAG - Debug Port` plus a CDC serial port, both under
 Freescale/NXP's USB vendor ID `15A2`.
 
+> **On the DC barrel jack: leave it alone unless you've confirmed its
+> rating.** The board has one (verified by physically inspecting the
+> board), but the silkscreen beside it carries no voltage or polarity
+> marking, and its rating is *not documented* in NXP's DSC
+> getting-started guide, the current MCUXpresso SDK docs' full
+> MC56F83000-EVK chapter, or the bootloader demo's hardware-setup
+> section. Board-manual and schematic URLs under `nxp.com/docs/...`
+> 404 (likely gated behind an NXP account). Wrong voltage or polarity
+> can damage the board. What *is* clear: every official bring-up
+> procedure for this board lists only a USB cable, no adapter and no
+> jumper change — so USB alone powers it for normal use. Everything in
+> this repo was developed and verified over USB only.
+
 ```bash
 make build
 make flash
