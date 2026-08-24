@@ -21,8 +21,8 @@ Makefile. Its Eclipse IDE, its project file format (`.cproject`/
   `mwcc56800e.exe` / `mwasm56800e.exe` / `mwld56800e.exe` / `FFLASH.exe`
   directly
 - ✅ **Verified end to end on real hardware** — builds, flashes,
-  CRC-verifies, and runs (banner read back and characters echoed over
-  the board's serial bridge)
+  CRC-verifies, and runs: heartbeat LED blinking and the startup banner
+  read back over the board's serial bridge
 - ✅ Everything here (Makefile, the one PowerShell setup script, docs)
   is yours, MIT-licensed
 - ❌ CodeWarrior and the MCUXpresso SDK are NXP's — installed
@@ -93,6 +93,28 @@ Device drivers, startup code, and runtime libraries are **not** vendored
 here — they're referenced by path out of your MCUXpresso SDK and
 CodeWarrior installs, via `SDK_ROOT`/`CW_ROOT` in `config/toolchain.mk`.
 
+## The firmware
+
+`src/` holds NXP's `hello_world` demo for this board, lightly modified.
+On reset it initialises the board, prints over the debug UART:
+
+```
+MCUX SDK version: 2026.06.00
+hello world.
+```
+
+then blinks a **green heartbeat LED at ~2 Hz** forever. The blink is
+there so you can tell the board is alive with no UART attached — useful,
+given there's no debugger (see below).
+
+Serial is **115200 8N1** on the CDC port the board enumerates (find it
+in Device Manager under Ports, or look for USB vendor ID `15A2`).
+
+The stock demo echoed UART input back; that was dropped because
+`GETCHAR()` blocks, which would stall the heartbeat whenever nothing was
+being typed. If you want both, poll the UART non-blockingly instead of
+restoring the blocking loop.
+
 ## What's confirmed vs. still unverified
 
 **Confirmed, with sources** (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):
@@ -112,9 +134,11 @@ CodeWarrior installs, via `SDK_ROOT`/`CW_ROOT` in `config/toolchain.mk`.
   the gotcha below.
 - `flash/flash.cfg` is CodeWarrior's own `MC56F837xx.cfg`, which targets
   `mc56f83789` despite the filename.
-- **Verified on hardware**: `make build` → `make flash` → reset produces
-  the `hello world.` banner over the serial bridge, and the firmware's
-  echo loop returns characters sent to it.
+- **Verified on hardware**: `make build` → `make flash` → reset gives a
+  blinking heartbeat LED and the `hello world.` banner over the serial
+  bridge.
+- `fflash` leaves the target **halted** after programming — there's no
+  reset-and-run flag, so press the board's reset button.
 
 **Two gotchas worth knowing before you lose an afternoon:**
 

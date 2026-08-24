@@ -15,7 +15,7 @@
 # hardware with this exact file, output read back over the OSJTAG serial
 # bridge (see docs/SETUP.md step 6).
 #
-# What's confirmed from the fflash manual so far:
+# What's confirmed (manual, plus verified on hardware):
 #   - fflash defaults to "the current configured device on the CCS server"
 #     unless overridden
 #   - -USB forces the USB interface (this board's OSJTAG path)
@@ -23,11 +23,19 @@
 #     not applicable to this board
 #   - the device string is set via `mcu mc56f83789` inside the .cfg file,
 #     not a command-line flag
-# What's NOT yet confirmed (verify against your installed manual, usually
-# under {CodeWarrior install}\Help\, before relying on it):
-#   - whether there's a dedicated run/reset-after-program flag, or whether
-#     "run after flash" is a setting inside the .cfg file itself
-# Known gotcha, not a config problem: FFLASH.exe's CLI has a real bug
-# where a failed connection exits silently (code 1, zero output, nothing
-# logged) — see docs/SETUP.md step 6 for the diagnosis path (use the GUI
-# 56800E Flash Programmer.exe to see the actual error instead).
+#   - fflash leaves the target HALTED after programming. There's no
+#     reset-and-run flag in its option list and no .cfg setting for it —
+#     press the board's reset button afterwards. (The Makefile's `flash`
+#     target prints a reminder.)
+#
+# Two gotchas that are NOT config problems — see docs/SETUP.md step 6:
+#   - -gdi=<...>/DSC/gdi/dsc_pne_gdi.dll is MANDATORY for this board.
+#     Without it fflash can't reach the on-board OSJTAG probe and exits
+#     non-zero having printed nothing at all — no stderr, no -l<file>
+#     content, nothing in the Event Log. The Makefile always passes it.
+#   - A first-time board + toolchain-version pairing needs a one-time
+#     JM60 firmware update, doable only from CodeWarrior's IDE. Symptom
+#     without it: "unknown connection error".
+#
+# The GUI "56800E Flash Programmer.exe" in the same folder is handy for
+# diagnosis — it surfaces error text the CLI swallows.

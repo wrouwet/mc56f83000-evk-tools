@@ -42,8 +42,14 @@ SDK docs (*"Build and run SDK example on codewarrior"*, MCUXpresso SDK
 parses the SDK-generated `.cmd` files with no changes needed, and its
 `DSP56800x_EABI_Tools/lib/lpm/{ldm,sdm}/o4p/` holds the `libc.lib`/
 `librt.lib` every SDK demo project links against. `hello_world` builds
-clean to a 154 KB `.elf` on this toolchain (see docs/SETUP.md step 5 for
-the one remaining fix that project's own `.cproject` needed).
+clean on this toolchain, flashes, and runs on real hardware.
+
+(A footnote from that era, now moot: the SDK's `hello_world.cproject`
+also shipped with an empty "Additional Libraries" linker setting, so it
+failed to link against those runtime libraries even under v11.2 — four
+sibling demos in the same SDK had it populated correctly. That gap
+disappeared along with the Eclipse project files; the Makefile passes
+`librt.lib`/`libc.lib` explicitly.)
 
 Other facts from the original research, still holding:
 - The on-board debug interface is **OSJTAG**, via USB port **J8** — *not*
