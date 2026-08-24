@@ -1,0 +1,40 @@
+# Template for config/toolchain.mk.
+#
+# Normally you don't hand-write this - run tools/Detect-Toolchain.ps1 and
+# it generates config/toolchain.mk for you with real, verified paths
+# from your install. This file exists as a reference for the shape it
+# expects (and as a fallback if you'd rather fill it in by hand).
+#
+# All paths below are confirmed real, not guessed (see
+# docs/ARCHITECTURE.md for sources) - just filled with a placeholder
+# CodeWarrior version string ("v11.2") since the exact folder name is
+# whatever you installed to.
+
+# GNU Make on Windows runs recipes through cmd.exe by default, which has
+# no mkdir -p / rm -rf. Point it at Git for Windows' bash so the
+# Makefile's recipes stay ordinary POSIX shell.
+SHELL    := C:/Program Files/Git/bin/bash.exe
+
+CW_ROOT  := C:/Freescale/CW MCU v11.2
+SDK_ROOT := C:/Users/you/SDK_26_06_00_MC56F83000-EVK
+
+# 56800E compiler / assembler / linker - all three ship together under
+# DSP56800x_EABI_Tools in a CodeWarrior for DSC v11.2+SP1 install.
+CC     := $(CW_ROOT)/MCU/DSP56800x_EABI_Tools/bin/mwcc56800e.exe
+AS     := $(CW_ROOT)/MCU/DSP56800x_EABI_Tools/bin/mwasm56800e.exe
+LD     := $(CW_ROOT)/MCU/DSP56800x_EABI_Tools/bin/mwld56800e.exe
+
+# 56800E Flash Programmer - lives under the older "M56800x Support" tree,
+# a separate component from DSP56800x_EABI_Tools.
+FFLASH := $(CW_ROOT)/MCU/M56800x Support/56800E flash programmer/FFLASH.exe
+
+# P&E's DSC GDI driver. The Makefile passes this to fflash via -gdi= and
+# it is NOT optional: without it fflash falls back to a driver that can't
+# reach this board's on-board OSJTAG probe, then exits non-zero printing
+# absolutely nothing. (That silent failure cost real debugging time - see
+# docs/SETUP.md step 6.)
+GDI    := $(CW_ROOT)/MCU/M56800x Support/56800E flash programmer/DSC/gdi/dsc_pne_gdi.dll
+
+# CodeWarrior's Eclipse Debugger Shell - not used by the Makefile, only
+# needed once for the JM60 firmware update (docs/SETUP.md step 6).
+CWIDE  := $(CW_ROOT)/eclipse/cwidec.exe

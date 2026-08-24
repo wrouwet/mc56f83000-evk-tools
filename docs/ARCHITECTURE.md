@@ -62,25 +62,42 @@ Other facts from the original research, still holding:
   `flash_ldm_lpm_release` (optimization level 4) — and their `sdm`
   counterparts.
 
-**Headless build driver** — *"CodeWarrior 10 Command Line Interface –
-usage and examples"* (NXP community doc, by Jennie Zhang), confirmed
-still present and consistent in v11.1 (same Eclipse CDT-based
-architecture):
-- `{CodeWarrior install}\eclipse\ecd.exe` is the headless build driver.
-- It builds a whole **Eclipse project directory** (one containing a
-  `.cproject`/`.project` file) — not loose source files compiled
-  individually. This is why this repo's `project/` folder expects a real
-  copied-in CodeWarrior project rather than a `src/*.c` file list.
-- Confirmed syntax:
-  `ecd.exe build -data <workspace-path> -project <project-path> [-config <name> | -allConfigs] [-cleanBuild]`
-- A companion mode, `ecd.exe -generateMakefiles ...`, emits a real GNU
-  Makefile you can then drive with the `make.exe` CodeWarrior bundles
-  under `{install}\gnu\bin\` — useful if you'd rather not shell out to
-  `ecd.exe` directly for every build.
-- Two sibling executables in the same folder, `cwide.exe` and
-  `cwidec.exe`, are confirmed to run **Debugger Shell TCL scripts**
-  headlessly — this is the mechanism `tools/Debug.ps1` and `debug/*.tcl`
-  in this repo use.
+## Why the build doesn't use Eclipse project files or `ecd.exe`
+
+Earlier revisions of this repo drove CodeWarrior's headless Eclipse
+build driver (`ecd.exe build -data <workspace> -project <path> -config
+<name>`) against a `.cproject`/`.project` pair copied out of the SDK.
+That works — but only from the SDK's own directory, which makes it
+useless for a self-contained repo.
+
+The reason is in `.project`: every device/driver source it pulls in is a
+*linked resource* declared as `PARENT-5-PROJECT_LOC/devices/MC56F83789/
+...` — "go up exactly five directories from wherever this file lives,
+then descend." That resolves correctly only at the SDK's original depth
+(`boards/<board>/demo_apps/<name>/codewarrior/`). Copied into this repo
+at `project/codewarrior/`, five-up landed on `C:\Users\` and the build
+failed with `No rule to make target 'C:/Users/devices/...'`. The
+successful builds during that era were, on inspection, all pointed
+straight at the SDK checkout — the repo's own copy never actually built.
+
+Rather than patch the paths (fragile, and re-broken by every re-seed),
+the build now calls the underlying tools directly from an ordinary
+Makefile, computing every path from an explicit `SDK_ROOT`/`CW_ROOT` in
+`config/toolchain.mk`. No relative-depth assumptions, no Eclipse
+metadata, no IDE.
+
+**The compiler/assembler/linker flag sets in the Makefile are not
+reverse-engineered guesses.** They're transcribed from the `.args`
+response files that a real, verified `flash_ldm_lpm_debug` build
+emitted under `.../hello_world/codewarrior/build/flash_ldm_lpm_debug/`.
+So the Makefile reproduces a known-good build; it just orchestrates it
+itself. (One deliberate cleanup: the assembler's `.args` repeated
+several `-i` include paths verbatim, an Eclipse generation artifact,
+de-duplicated here.)
+
+`ecd.exe`'s companion mode `-generateMakefiles` also exists and emits a
+GNU Makefile — but it emits one *for the Eclipse project*, inheriting
+the same linked-resource problem, so it isn't a way out.
 
 **Flash programmer** — *"56800E Flash Programmer User's Guide"*
 (Freescale, Rev. 0, 09/2005):
@@ -94,21 +111,44 @@ architecture):
   `-jtagclk=<kHz>`, `-l<logfile>`, `-lock`.
 - Legacy `-LPT<n>`/`-p<PORT>` flags select a parallel-port Command
   Converter — not relevant to this board's on-board USB debug circuit.
+- **`-gdi=<dll>` is mandatory here, and omitting it fails silently.**
+  The manual presents it as optional. In practice, without
+  `-gdi=.../DSC/gdi/dsc_pne_gdi.dll` fflash cannot reach this board's
+  on-board OSJTAG probe and exits non-zero having printed *nothing* — no
+  stderr, no `-l<file>` content, no Event Log entry. It is a deliberate
+  exit, not a crash, and reproduces identically interactively, elevated,
+  and headless. Established empirically: the same command differing only
+  in that flag goes from silent failure to
+  `Verification Passed CRC32 (...)`.
+- Confirmed empirically: fflash **leaves the target halted** after
+  programming. Nothing in the manual's flag list resets-and-runs, and
+  the board only starts the new firmware after a manual reset.
 
-## What's still a documented placeholder, not a guess
+## What's still unverified
 
-A few specifics couldn't be confirmed from publicly available docs before
-an actual CodeWarrior install was in hand, and are flagged inline in the
-scripts rather than silently assumed:
+- The precise TCL command vocabulary CodeWarrior's Debugger Shell
+  exposes. Not pursued further, because the shell can't be driven
+  headlessly in the first place (below), so the vocabulary is moot for
+  this repo.
 
-- The exact flag `cwide.exe`/`cwidec.exe` expects to point at a startup
-  TCL script.
-- Whether `fflash.exe` has a "run after programming" flag, or whether
-  that's configured inside `flash.cfg`.
-- The precise TCL command vocabulary the Debugger Shell exposes
-  (breakpoints, stepping, register/memory access) — `debug/common.tcl`
-  documents the assumed shape and where to verify it
-  (`{CodeWarrior install}\Help\`, once installed).
+## Why there's no scripted debugging
+
+`cwide.exe`/`cwidec.exe` are frequently described as running Debugger
+Shell TCL scripts headlessly. They may well do so under the IDE, but
+there is no working command-line entry point: `cwidec.exe -help` and
+`-?` are not recognized, and invoking it with no recognized arguments
+drops into an **interactive TCL REPL reading stdin** rather than
+printing usage. An earlier revision of this repo shipped `tools/
+Debug.ps1` built around a guessed `-Dcw.script=<path>` flag plus
+placeholder `debug/*.tcl` scripts whose commands were never verified
+either. None of it ever ran. It has been removed rather than left in
+place as non-functional scaffolding.
+
+Combined with the absence of a GDB target for this core (below), the
+supported workflow is `PRINTF` over the serial bridge plus the
+heartbeat LED in `src/hello_world.c`. CodeWarrior's IDE remains
+available if genuine breakpoint debugging is needed for a session — it
+installs the same toolchain this Makefile drives, so the two coexist.
 
 ## Why not GDB, and why not the open-source USBDM project
 

@@ -1,6 +1,8 @@
 build/
-config/toolchain.ps1
+config/toolchain.mk
+.vscode/c_cpp_properties.json
 *.o
+*.obj
 *.elf
 *.abs
 *.lst
